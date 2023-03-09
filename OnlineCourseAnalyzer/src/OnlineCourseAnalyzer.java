@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Scanner;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -44,6 +45,11 @@ class OnlineCourse {
     double malePercentage;
     double femalePercentage;
     double bachelorDegreeOrHigherPercentage;
+    double similarityValue;
+
+    public double getSimilarityValue() {
+        return similarityValue;
+    }
 
     public String getInstitution() {
         return institution;
@@ -307,8 +313,7 @@ public class OnlineCourseAnalyzer {
     public Map<String, List<List<String>>> getCourseListOfInstructor() {
         Map<String, List<List<String>>> courseListOfInstructor = new LinkedHashMap<>();
         Set<String> instructorSet = new HashSet<>();
-        for (OnlineCourse onlineCourse :
-            onlineCourses) {
+        for (OnlineCourse onlineCourse : onlineCourses) {
             Collections.addAll(instructorSet, onlineCourse.instructors);
         }
         for (String instructor :
@@ -316,8 +321,7 @@ public class OnlineCourseAnalyzer {
             List<List<String>> list = new ArrayList<>();
             List<String> list0 = new ArrayList<>();
             List<String> list1 = new ArrayList<>();
-            for (OnlineCourse onlineCourse :
-                onlineCourses) {
+            for (OnlineCourse onlineCourse : onlineCourses) {
                 if (onlineCourse.instructors.length == 1 && onlineCourse.instructors[0]
                     .equals(instructor)) {
                     list0.add(onlineCourse.courseTitle);
@@ -339,16 +343,17 @@ public class OnlineCourseAnalyzer {
 
     public List<String> getCourses(int topK, String by) throws NoSuchMethodException {
         List<String> course = new ArrayList<>();
-        List<OnlineCourse> onlineCourseList = new ArrayList<>();
+        List<OnlineCourse> onlineCourseList;
         if (by.equals("hours")) {
             onlineCourseList = Arrays.stream(onlineCourses)
                 .sorted(Comparator.comparing(OnlineCourse::getTotalCourseHours).reversed()
                     .thenComparing(OnlineCourse::getCourseTitle))
-                .limit(topK).toList();
+                .toList();
         } else if (by.equals("participants")) {
             onlineCourseList = Arrays.stream(onlineCourses)
-                .sorted(Comparator.comparing(OnlineCourse::getParticipants).reversed())
-                .limit(topK).toList();
+                .sorted(Comparator.comparing(OnlineCourse::getParticipants).reversed()
+                    .thenComparing(OnlineCourse::getCourseTitle))
+                .toList();
         } else {
             throw new NoSuchMethodException();
         }
@@ -358,25 +363,119 @@ public class OnlineCourseAnalyzer {
                 course.add(onlineCourse.courseTitle);
             }
         }
-        return course;
+        return course.stream().limit(topK).toList();
     }
 
     public List<String> searchCourses(String courseSubject, double
         percentAudited, double totalCourseHours) {
-        return null;
+        List<OnlineCourse> onlineCourseList = Arrays.stream(onlineCourses)
+            //.filter(s -> s.courseSubject.regionMatches(true, 0, courseSubject, 0, courseSubject.length()))
+            .filter(s -> s.courseSubject.toLowerCase().contains(courseSubject.toLowerCase()))
+            .filter(s -> s.auditedPercentage >= percentAudited)
+            .filter(s -> s.totalCourseHours <= totalCourseHours)
+            .toList();
+        List<String> courses = new ArrayList<>();
+        for (OnlineCourse onlineCourse :
+            onlineCourseList) {
+            courses.add(onlineCourse.courseTitle);
+        }
+        return courses.stream().sorted().toList();
     }
 
     public List<String> recommendCourses(int age, int gender, int
         isBachelorOrHigher) {
-        return null;
-    }
 
-    public static void main(String[] args) throws NoSuchMethodException {
-        OnlineCourseAnalyzer onlineCourseAnalyzer = new OnlineCourseAnalyzer("./src/local.csv");
-//        System.out.println(onlineCourseAnalyzer.getPtcpCountByInst());
-//        System.out.println(onlineCourseAnalyzer.getPtcpCountByInstAndSubject());
-//        System.out.println(onlineCourseAnalyzer.getCourseListOfInstructor());
-        System.out.println(onlineCourseAnalyzer.getCourses(20, "participants"));
-        //System.out.println(onlineCourseAnalyzer.onlineCourses[0]);
+        List<OnlineCourse> recommendCourseList = new ArrayList<>(); // restore course info
+        List<String> recommendCourseTitleList = new ArrayList<>(); // the list returned
+        Set<String> courseNumberSet = new HashSet<>();
+
+        for (OnlineCourse onlineCourse : onlineCourses) {
+            courseNumberSet.add(onlineCourse.courseNumber);
+        }
+
+        int i = 0;
+        double[] averageMedianAge = new double[courseNumberSet.size()];
+        double[] averageMalePercentage = new double[courseNumberSet.size()];
+        double[] averageBDOHPercentage = new double[courseNumberSet.size()];
+
+        for (String courseNumber : courseNumberSet) { // scan all the courseNumber
+
+            int counter = 0;
+            OnlineCourse course = null;
+            long latestLaunchDate = 0;
+
+            for (OnlineCourse onlineCourse : onlineCourses) { // get similarityValue for each course with current courseNumber
+                if (onlineCourse.courseNumber.equals(courseNumber)) {
+                    // capture single course with current courseNumber, analyze and return course with latestLaunchDate
+                    averageMedianAge[i] += onlineCourse.medianAge;
+                    averageMalePercentage[i] += onlineCourse.malePercentage;
+                    averageBDOHPercentage[i] += onlineCourse.bachelorDegreeOrHigherPercentage;
+                    counter++;
+
+                    String[] currentLaunchDateString = onlineCourse.launchDate.split("/");
+                    int currentLaunchDate = Integer.parseInt(currentLaunchDateString[2]) * 10000
+                        + Integer.parseInt(currentLaunchDateString[1]) * 100
+                        + Integer.parseInt(currentLaunchDateString[0]);
+                    if (currentLaunchDate > latestLaunchDate) {
+                        latestLaunchDate = currentLaunchDate;
+                        course = onlineCourse;
+                    }
+                }
+            }
+
+            averageMedianAge[i] /= counter;
+            averageMalePercentage[i] /= counter;
+            averageBDOHPercentage[i] /= counter;
+            /*  similarity formula:
+             *   similarity value = (age -average Median Age)^2 + (gender100 - average Male)^2
+             *   + (isBachelorOrHigher100- average Bachelor's Degree or Higher)^2  */
+            assert course != null;
+            course.similarityValue = Math.pow(age - averageMedianAge[i], 2) + Math
+                .pow(gender * 100 - averageMalePercentage[i], 2) + Math
+                .pow(isBachelorOrHigher * 100 - averageBDOHPercentage[i], 2);
+            boolean flag = true;
+
+//            Exception in thread "main" java.util.ConcurrentModificationException
+//            for (OnlineCourse c: recommendCourseList) {
+//                if (c.courseTitle.equals(course.courseTitle)) {
+//                    if (c.similarityValue < course.similarityValue){
+//                        flag = false;
+//                        break;
+//                    }
+//                    else{
+//                        recommendCourseList.remove(c);
+//                    }
+//                }
+//            }
+
+            Iterator<OnlineCourse> iterator = recommendCourseList.iterator();
+            while (iterator.hasNext()) {
+                OnlineCourse next = iterator.next();
+                if (next.courseTitle.equals(course.courseTitle)) {
+                    if (next.similarityValue < course.similarityValue) {
+                        flag = false;
+                        break;
+                    } else {
+                        iterator.remove();
+                    }
+                }
+            }
+            if (flag) {
+                recommendCourseList.add(course);
+            }
+
+            i++;
+        }
+
+        recommendCourseList = recommendCourseList.stream()
+            .sorted(Comparator.comparing(OnlineCourse::getSimilarityValue)
+                .thenComparing(OnlineCourse::getCourseTitle).reversed())
+            .limit(10)
+            .toList();
+
+        for (OnlineCourse onlineCourse : recommendCourseList) {
+            recommendCourseTitleList.add(onlineCourse.courseTitle);
+        }
+        return recommendCourseTitleList;
     }
 }
