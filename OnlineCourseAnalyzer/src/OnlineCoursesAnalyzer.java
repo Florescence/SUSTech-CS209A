@@ -314,7 +314,7 @@ public class OnlineCoursesAnalyzer {
             .collect(
                 LinkedHashMap::new,
                 (map, val) -> map.put(val.getKey(), val.getValue()),
-                (_1, _2) -> {
+                (a, b) -> {
                 }
             );
     }
@@ -420,7 +420,8 @@ public class OnlineCoursesAnalyzer {
             int p = 0; // the position in array of course of this courseNumber with the latestLaunchDate
             long latestLaunchDate = 0;
 
-            for (int j = 0; j < onlineCourses.length; j++) { // get similarityValue for each course with current courseNumber
+            for (int j = 0; j < onlineCourses.length;
+                j++) { // get similarityValue for each course with current courseNumber
                 if (onlineCourses[j].courseNumber.equals(courseNumber)) {
                     // capture single course with current courseNumber, analyze and return course with latestLaunchDate
                     averageMedianAge[i] += onlineCourses[j].medianAge;
@@ -444,8 +445,8 @@ public class OnlineCoursesAnalyzer {
             averageMalePercentage[i] /= counter;
             averageBDOHPercentage[i] /= counter;
             /*  similarity formula:
-             *   similarity value = (age -average Median Age)^2 + (gender100 - average Male)^2
-             *   + (isBachelorOrHigher100- average Bachelor's Degree or Higher)^2  */
+             *   similarity value = (age - average Median Age)^2 + (gender * 100 - average Male)^2
+             *   + (isBachelorOrHigher * 100- average Bachelor's Degree or Higher)^2  */
             onlineCourses[p].similarityValue = Math.pow(age - averageMedianAge[i], 2) + Math
                 .pow(gender * 100 - averageMalePercentage[i], 2) + Math
                 .pow(isBachelorOrHigher * 100 - averageBDOHPercentage[i], 2);
